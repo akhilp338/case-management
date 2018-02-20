@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:activiti="http://activiti.org/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC" xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI" typeLanguage="http://www.w3.org/2001/XMLSchema" expressionLanguage="http://www.w3.org/1999/XPath" targetNamespace="studerw.com">
+  <process id="BOOK_REPORT___engineering" name="Book Report for Engineering Group Workflow" isExecutable="true">
+    <documentation>This process is initiated when a book report is created.</documentation>
+    <startEvent id="startevent1" name="Start" activiti:initiator="initiator"></startEvent>
+    <userTask id="submitToWorkflow" name="Submit Book Report to Workflow"></userTask>
+    <serviceTask id="publishBookReport" name="Publish Case Report" activiti:expression="${documentService.publish(execution)}"></serviceTask>
+    <endEvent id="endevent1" name="End"></endEvent>
+    <subProcess id="DYNAMIC_SUB_PROCESS" name="Dynamic Document Subprocess">
+      <startEvent id="dynamic_sub_process_start_event" name="Start Dynamic SubProcess"></startEvent>
+      <userTask id="COLLABORATE_DOC_USER_TASK_1" name="Collaborate Case(1 of 2)" activiti:candidateUsers="user1,user2">
+        <extensionElements>
+          <activiti:taskListener event="create" expression="${docWorkflowListener.onCreateCollaborate(execution, task)}"></activiti:taskListener>
+          <activiti:taskListener event="complete" expression="${docWorkflowListener.onCompleteCollaborate(execution, task)}"></activiti:taskListener>
+        </extensionElements>
+      </userTask>
+      <userTask id="COLLABORATE_DOC_USER_TASK_2" name="Collaborate Case(2 of 2)" activiti:candidateGroups="engineering">
+        <extensionElements>
+          <activiti:taskListener event="create" expression="${docWorkflowListener.onCreateCollaborate(execution, task)}"></activiti:taskListener>
+          <activiti:taskListener event="complete" expression="${docWorkflowListener.onCompleteCollaborate(execution, task)}"></activiti:taskListener>
+        </extensionElements>
+      </userTask>
+      <userTask id="APPROVE_REJECT_DOC_USER_TASK_1" name="Approve Case(1 of 2)" activiti:candidateUsers="user3,user4">
+        <extensionElements>
+          <activiti:taskListener event="create" expression="${docWorkflowListener.onCreateApproval(execution, task)}"></activiti:taskListener>
+        </extensionElements>
+      </userTask>
+      <userTask id="APPROVE_REJECT_DOC_USER_TASK_2" name="Approve Case(2 of 2)" activiti:candidateUsers="user4" activiti:candidateGroups="sales">
+        <extensionElements>
+          <activiti:taskListener event="create" expression="${docWorkflowListener.onCreateApproval(execution, task)}"></activiti:taskListener>
+        </extensionElements>
+      </userTask>
+      <endEvent id="rejectedErrorEndEvent" name="ErrorEnd">
+        <errorEventDefinition errorRef="ERROR_DOC_REJECTED"></errorEventDefinition>
+      </endEvent>
+      <sequenceFlow id="dynamic_subflow_1" sourceRef="dynamic_sub_process_start_event" targetRef="COLLABORATE_DOC_USER_TASK_1"></sequenceFlow>
+      <sequenceFlow id="dynamic_subflow_2" sourceRef="COLLABORATE_DOC_USER_TASK_1" targetRef="COLLABORATE_DOC_USER_TASK_2"></sequenceFlow>
+      <sequenceFlow id="dynamic_subflow_3" sourceRef="COLLABORATE_DOC_USER_TASK_2" targetRef="APPROVE_REJECT_DOC_USER_TASK_1"></sequenceFlow>
+      <exclusiveGateway id="exclusivegateway1" name="Exclusive Gateway 1"></exclusiveGateway>
+      <sequenceFlow id="dynamic_subflow_4" sourceRef="APPROVE_REJECT_DOC_USER_TASK_1" targetRef="exclusivegateway1"></sequenceFlow>
+      <sequenceFlow id="docRejectedSubFlow1" name="Doc Rejected" sourceRef="exclusivegateway1" targetRef="rejectedErrorEndEvent">
+        <extensionElements>
+          <activiti:executionListener event="take" expression="${docWorkflowListener.onRejected(execution)}"></activiti:executionListener>
+        </extensionElements>
+        <conditionExpression xsi:type="tFormalExpression"><![CDATA[${approved == false}]]></conditionExpression>
+      </sequenceFlow>
+      <sequenceFlow id="docApprovedSubFlow1" name="Doc Approved" sourceRef="exclusivegateway1" targetRef="APPROVE_REJECT_DOC_USER_TASK_2">
+        <extensionElements>
+          <activiti:executionListener event="take" expression="${docWorkflowListener.onApproved(execution)}"></activiti:executionListener>
+        </extensionElements>
+        <conditionExpression xsi:type="tFormalExpression"><![CDATA[${approved == true}]]></conditionExpression>
+      </sequenceFlow>
+      <exclusiveGateway id="exclusivegateway2" name="Exclusive Gateway 2"></exclusiveGateway>
+      <sequenceFlow id="docRejectedSubFlow2" name="Doc Rejected" sourceRef="exclusivegateway2" targetRef="rejectedErrorEndEvent">
+        <extensionElements>
+          <activiti:executionListener event="take" expression="${docWorkflowListener.onRejected(execution)}"></activiti:executionListener>
+        </extensionElements>
+        <conditionExpression xsi:type="tFormalExpression"><![CDATA[${approved == false}]]></conditionExpression>
+      </sequenceFlow>
+      <sequenceFlow id="docApprovedSubFlow2" name="Doc Approved" sourceRef="exclusivegateway2" targetRef="dynamic_sub_process_end_event">
+        <extensionElements>
+          <activiti:executionListener event="take" expression="${docWorkflowListener.onApproved(execution)}"></activiti:executionListener>
+        </extensionElements>
+        <conditionExpression xsi:type="tFormalExpression"><![CDATA[${approved == true}]]></conditionExpression>
+      </sequenceFlow>
+      <endEvent id="dynamic_sub_process_end_event" name="End Dynamic SubProcess"></endEvent>
+    </subProcess>
+    <boundaryEvent id="REJECTED_ERROR_BOUNDARY_EVENT" name="Rejected Error Event" attachedToRef="DYNAMIC_SUB_PROCESS">
+      <errorEventDefinition errorRef="ERROR_DOC_REJECTED"></errorEventDefinition>
+    </boundaryEvent>
+    <sequenceFlow id="flow1" sourceRef="startevent1" targetRef="submitToWorkflow"></sequenceFlow>
+    <sequenceFlow id="flow2" sourceRef="submitToWorkflow" targetRef="DYNAMIC_SUB_PROCESS"></sequenceFlow>
+    <sequenceFlow id="flow3" sourceRef="DYNAMIC_SUB_PROCESS" targetRef="publishBookReport"></sequenceFlow>
+    <sequenceFlow id="flow4" sourceRef="publishBookReport" targetRef="endevent1"></sequenceFlow>
+    <sequenceFlow id="flow5" name="Doc Rejected" sourceRef="REJECTED_ERROR_BOUNDARY_EVENT" targetRef="submitToWorkflow"></sequenceFlow>
+  </process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_BOOK_REPORT___engineering">
+    <bpmndi:BPMNPlane bpmnElement="BOOK_REPORT___engineering" id="BPMNPlane_BOOK_REPORT___engineering">
+      <bpmndi:BPMNShape bpmnElement="startevent1" id="BPMNShape_startevent1">
+        <omgdc:Bounds height="35.0" width="35.0" x="0.0" y="131.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="submitToWorkflow" id="BPMNShape_submitToWorkflow">
+        <omgdc:Bounds height="60.0" width="100.0" x="80.0" y="116.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="publishBookReport" id="BPMNShape_publishBookReport">
+        <omgdc:Bounds height="60.0" width="100.0" x="1050.0" y="116.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="endevent1" id="BPMNShape_endevent1">
+        <omgdc:Bounds height="35.0" width="35.0" x="1200.0" y="131.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="DYNAMIC_SUB_PROCESS" id="BPMNShape_DYNAMIC_SUB_PROCESS">
+        <omgdc:Bounds height="292.0" width="770.0" x="230.0" y="0.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="dynamic_sub_process_start_event" id="BPMNShape_dynamic_sub_process_start_event">
+        <omgdc:Bounds height="35.0" width="35.0" x="255.0" y="35.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="COLLABORATE_DOC_USER_TASK_1" id="BPMNShape_COLLABORATE_DOC_USER_TASK_1">
+        <omgdc:Bounds height="60.0" width="100.0" x="340.0" y="20.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="COLLABORATE_DOC_USER_TASK_2" id="BPMNShape_COLLABORATE_DOC_USER_TASK_2">
+        <omgdc:Bounds height="60.0" width="100.0" x="490.0" y="44.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="APPROVE_REJECT_DOC_USER_TASK_1" id="BPMNShape_APPROVE_REJECT_DOC_USER_TASK_1">
+        <omgdc:Bounds height="60.0" width="100.0" x="640.0" y="68.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="APPROVE_REJECT_DOC_USER_TASK_2" id="BPMNShape_APPROVE_REJECT_DOC_USER_TASK_2">
+        <omgdc:Bounds height="60.0" width="100.0" x="880.0" y="70.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="rejectedErrorEndEvent" id="BPMNShape_rejectedErrorEndEvent">
+        <omgdc:Bounds height="35.0" width="35.0" x="915.0" y="230.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="exclusivegateway1" id="BPMNShape_exclusivegateway1">
+        <omgdc:Bounds height="40.0" width="40.0" x="790.0" y="105.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="exclusivegateway2" id="BPMNShape_exclusivegateway2">
+        <omgdc:Bounds height="40.0" width="40.0" x="250.0" y="232.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="dynamic_sub_process_end_event" id="BPMNShape_dynamic_sub_process_end_event">
+        <omgdc:Bounds height="35.0" width="35.0" x="375.0" y="180.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="REJECTED_ERROR_BOUNDARY_EVENT" id="BPMNShape_REJECTED_ERROR_BOUNDARY_EVENT">
+        <omgdc:Bounds height="30.0" width="30.0" x="831.0" y="277.0"></omgdc:Bounds>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="dynamic_subflow_1" id="BPMNEdge_dynamic_subflow_1">
+        <omgdi:waypoint x="290.0" y="52.0"></omgdi:waypoint>
+        <omgdi:waypoint x="302.0" y="50.0"></omgdi:waypoint>
+        <omgdi:waypoint x="302.0" y="50.0"></omgdi:waypoint>
+        <omgdi:waypoint x="340.0" y="50.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="dynamic_subflow_2" id="BPMNEdge_dynamic_subflow_2">
+        <omgdi:waypoint x="440.0" y="50.0"></omgdi:waypoint>
+        <omgdi:waypoint x="452.0" y="50.0"></omgdi:waypoint>
+        <omgdi:waypoint x="452.0" y="74.0"></omgdi:waypoint>
+        <omgdi:waypoint x="490.0" y="74.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="dynamic_subflow_3" id="BPMNEdge_dynamic_subflow_3">
+        <omgdi:waypoint x="590.0" y="74.0"></omgdi:waypoint>
+        <omgdi:waypoint x="602.0" y="74.0"></omgdi:waypoint>
+        <omgdi:waypoint x="602.0" y="98.0"></omgdi:waypoint>
+        <omgdi:waypoint x="640.0" y="98.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="dynamic_subflow_4" id="BPMNEdge_dynamic_subflow_4">
+        <omgdi:waypoint x="740.0" y="98.0"></omgdi:waypoint>
+        <omgdi:waypoint x="752.0" y="98.0"></omgdi:waypoint>
+        <omgdi:waypoint x="752.0" y="125.0"></omgdi:waypoint>
+        <omgdi:waypoint x="790.0" y="125.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="docRejectedSubFlow1" id="BPMNEdge_docRejectedSubFlow1">
+        <omgdi:waypoint x="830.0" y="125.0"></omgdi:waypoint>
+        <omgdi:waypoint x="842.0" y="125.0"></omgdi:waypoint>
+        <omgdi:waypoint x="842.0" y="245.0"></omgdi:waypoint>
+        <omgdi:waypoint x="915.0" y="247.0"></omgdi:waypoint>
+        <bpmndi:BPMNLabel>
+          <omgdc:Bounds height="14.0" width="64.0" x="830.0" y="125.0"></omgdc:Bounds>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="docApprovedSubFlow1" id="BPMNEdge_docApprovedSubFlow1">
+        <omgdi:waypoint x="830.0" y="125.0"></omgdi:waypoint>
+        <omgdi:waypoint x="842.0" y="125.0"></omgdi:waypoint>
+        <omgdi:waypoint x="842.0" y="100.0"></omgdi:waypoint>
+        <omgdi:waypoint x="880.0" y="100.0"></omgdi:waypoint>
+        <bpmndi:BPMNLabel>
+          <omgdc:Bounds height="14.0" width="70.0" x="830.0" y="125.0"></omgdc:Bounds>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="docRejectedSubFlow2" id="BPMNEdge_docRejectedSubFlow2">
+        <omgdi:waypoint x="290.0" y="252.0"></omgdi:waypoint>
+        <omgdi:waypoint x="302.0" y="252.0"></omgdi:waypoint>
+        <omgdi:waypoint x="302.0" y="245.0"></omgdi:waypoint>
+        <omgdi:waypoint x="915.0" y="247.0"></omgdi:waypoint>
+        <bpmndi:BPMNLabel>
+          <omgdc:Bounds height="14.0" width="64.0" x="290.0" y="252.0"></omgdc:Bounds>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="docApprovedSubFlow2" id="BPMNEdge_docApprovedSubFlow2">
+        <omgdi:waypoint x="290.0" y="252.0"></omgdi:waypoint>
+        <omgdi:waypoint x="302.0" y="252.0"></omgdi:waypoint>
+        <omgdi:waypoint x="302.0" y="195.0"></omgdi:waypoint>
+        <omgdi:waypoint x="375.0" y="197.0"></omgdi:waypoint>
+        <bpmndi:BPMNLabel>
+          <omgdc:Bounds height="14.0" width="70.0" x="290.0" y="252.0"></omgdc:Bounds>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow1" id="BPMNEdge_flow1">
+        <omgdi:waypoint x="35.0" y="148.0"></omgdi:waypoint>
+        <omgdi:waypoint x="80.0" y="146.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow2" id="BPMNEdge_flow2">
+        <omgdi:waypoint x="180.0" y="146.0"></omgdi:waypoint>
+        <omgdi:waypoint x="192.0" y="146.0"></omgdi:waypoint>
+        <omgdi:waypoint x="192.0" y="146.0"></omgdi:waypoint>
+        <omgdi:waypoint x="230.0" y="146.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow3" id="BPMNEdge_flow3">
+        <omgdi:waypoint x="1000.0" y="146.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1050.0" y="146.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow4" id="BPMNEdge_flow4">
+        <omgdi:waypoint x="1150.0" y="146.0"></omgdi:waypoint>
+        <omgdi:waypoint x="1200.0" y="148.0"></omgdi:waypoint>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="flow5" id="BPMNEdge_flow5">
+        <omgdi:waypoint x="846.0" y="307.0"></omgdi:waypoint>
+        <omgdi:waypoint x="846.0" y="317.0"></omgdi:waypoint>
+        <omgdi:waypoint x="130.0" y="317.0"></omgdi:waypoint>
+        <omgdi:waypoint x="130.0" y="226.0"></omgdi:waypoint>
+        <omgdi:waypoint x="130.0" y="176.0"></omgdi:waypoint>
+        <bpmndi:BPMNLabel>
+          <omgdc:Bounds height="14.0" width="64.0" x="846.0" y="307.0"></omgdc:Bounds>
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
